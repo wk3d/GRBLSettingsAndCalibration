@@ -1,5 +1,4 @@
 ﻿using GRBLSettingsAndCofiguration.Properties;
-using Microsoft.MixedReality.Toolkit.OpenVR.Headers;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -15,7 +14,6 @@ using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static Microsoft.MixedReality.Toolkit.BoundsExtensions;
 
 namespace GRBLSettingsAndCofiguration
 {
@@ -31,6 +29,19 @@ namespace GRBLSettingsAndCofiguration
                     break;
                 default:
                     throw new Exception("Invalid settings name");
+                    break;
+            }
+        }
+        
+        public static Dictionary<int, string> GetErrorCodes(string GRBLVersion)
+        {
+            switch (GRBLVersion)
+            {
+                case "1.1":
+                    return GRBL11ErrorCodes;
+                    break;
+                default:
+                    throw new Exception("Version not available");
                     break;
             }
         }

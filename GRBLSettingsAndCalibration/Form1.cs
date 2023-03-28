@@ -11,7 +11,8 @@ namespace GRBLSettingsAndCofiguration
 {
     public partial class frmMain : Form
     {
-        SerialPort sp = new SerialPort();
+        //System.IO.Ports
+        SerialPort sp;// = new SerialPort();
         string TargetVersion = "";
         bool WaitingForResponse = false;
         string NextAction = "";
@@ -222,13 +223,25 @@ namespace GRBLSettingsAndCofiguration
             // prepare calibration values
             cmbDistanceToMove.SelectedIndex = 6;
 
-
+            // load the error codes
+            DataTable dtErrorCodes = new DataTable();
+            dtErrorCodes.Columns.Add("Code");
+            dtErrorCodes.Columns.Add("Description");
+            Dictionary<int, string> dGRBLErrorCodes = GRBLSettingsConfigs.GetErrorCodes(cmbGRBLVersion.SelectedItem.ToString());
+            foreach (int key in dGRBLErrorCodes.Keys)
+            {
+                dtErrorCodes.Rows.Add(key.ToString(), dGRBLErrorCodes[key]);
+            }
+            dgvErrorCodes.DataSource = dtErrorCodes;
+            dgvErrorCodes.Refresh();
             
 
         }
 
+
         private void EnumeratePorts()
         {
+
             ManagementObjectCollection ManObjReturn;
             ManagementObjectSearcher ManObjSearch;
             ManObjSearch = new ManagementObjectSearcher("Select * from Win32_SerialPort");
@@ -248,6 +261,8 @@ namespace GRBLSettingsAndCofiguration
                 cmbPortsToConnectTo.SelectedIndex = 0;
                 btnConnectToPort.Enabled = true;
             }
+            
+
             cmbBaudRate.SelectedIndex = 7;
 
 
@@ -270,7 +285,7 @@ namespace GRBLSettingsAndCofiguration
 
                     string SelectedItem = cmbPortsToConnectTo.SelectedItem.ToString();
                     SelectedItem = SelectedItem.Substring(0, SelectedItem.IndexOf("("));
-                    sp = new SerialPort(SelectedItem, int.Parse(cmbBaudRate.SelectedItem.ToString()));
+                    sp =  new SerialPort(SelectedItem, int.Parse(cmbBaudRate.SelectedItem.ToString()));
                     sp.Parity = Parity.None;
                     sp.Handshake = Handshake.None;
                     sp.DataBits = 8;
@@ -282,12 +297,17 @@ namespace GRBLSettingsAndCofiguration
                     sp.DataReceived += Sp_DataReceived;
                     sp.ErrorReceived += Sp_ErrorReceived;
                     sp.DtrEnable = true;
+                    sp.DataReceived += Sp_DataReceived;
+
+
                     try
                     {
-                        sp.Open();
                         WaitingForResponse = true;
                         NextAction = "LoadSettings";
                         OpeningConnection = true;
+                        sp.Open();
+                        
+                        WriteData("?" + Environment.NewLine);
 
                         //btnConnectToPort.Enabled = false;
                         btnConnectToPort.Text = "Close";
@@ -326,6 +346,11 @@ namespace GRBLSettingsAndCofiguration
             SetText("ERROR:" + Environment.NewLine + sp.ReadExisting() + Environment.NewLine);
         }
 
+        private void WriteData(string Message)
+        {
+            sp.Write(Message);
+        }
+
         private void Sp_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
             // Show all the incoming data in the port's buffer
@@ -333,6 +358,8 @@ namespace GRBLSettingsAndCofiguration
             bool EndReached = false;
             bool IsError = false;
 
+            
+            
             while (!EndReached || sp.BytesToRead > 0)
             {
                 var valueOfPort = sp.ReadExisting();
@@ -345,6 +372,8 @@ namespace GRBLSettingsAndCofiguration
                     OpeningConnection = false;
                 }
             }
+
+            
 
             // get error code if found
             string ErrorCode = "";
@@ -363,7 +392,7 @@ namespace GRBLSettingsAndCofiguration
                 if(NextAction == "LoadSettings")
                 {
                     // call load settings function
-                    sp.Write("$$" + Environment.NewLine);
+                    WriteData("$$" + Environment.NewLine);// sp.Write("$$" + Environment.NewLine);
                     NextAction = "ParseSettings";
                     SetText(DataReceived + Environment.NewLine);
                 }
@@ -495,12 +524,13 @@ namespace GRBLSettingsAndCofiguration
 
         private void btnLoadSettings_Click(object sender, EventArgs e)
         {
+            
             if (!sp.IsOpen)
             {
                 MessageBox.Show("Connection not open.");
                 return;
             }
-            sp.Write("$$" +Environment.NewLine);
+            WriteData("$$" + Environment.NewLine); //sp.Write("$$" +Environment.NewLine);
             WaitingForResponse = true;
         }
 
@@ -511,7 +541,7 @@ namespace GRBLSettingsAndCofiguration
                 MessageBox.Show("Connection not open.");
                 return;
             }
-            sp.Write(textBox2.Text + Environment.NewLine);
+            WriteData(textBox2.Text + Environment.NewLine); //sp.Write(textBox2.Text + Environment.NewLine);
             WaitingForResponse = true;
         }
 
@@ -567,7 +597,7 @@ namespace GRBLSettingsAndCofiguration
                 txtCurrentStepsPerMM.Text = "";
                 try
                 {
-                    sp.Write("$$" + Environment.NewLine);
+                    WriteData("$$" + Environment.NewLine); // sp.Write("$$" + Environment.NewLine);
                 }
                 catch
                 {
@@ -597,9 +627,9 @@ namespace GRBLSettingsAndCofiguration
             {
                 TargetAxis = cmbAxisToCalibrate.SelectedItem.ToString().Replace("-axis", "");
             }
-            sp.Write("G91" + Environment.NewLine);
-            sp.Write("G0" + TargetAxis + "-" + cmbDistanceToMove.SelectedItem.ToString() + Environment.NewLine);
-            sp.Write("G90" + Environment.NewLine);
+            WriteData("G91" + Environment.NewLine);//sp.Write("G91" + Environment.NewLine);
+            WriteData("G0" + TargetAxis + "-" + cmbDistanceToMove.SelectedItem.ToString() + Environment.NewLine);  //sp.Write("G0" + TargetAxis + "-" + cmbDistanceToMove.SelectedItem.ToString() + Environment.NewLine);
+            WriteData("G90" + Environment.NewLine);  //sp.Write("G90" + Environment.NewLine);
             SetText("G91" + Environment.NewLine);
             SetText("G0" + TargetAxis + "-" + cmbDistanceToMove.SelectedItem.ToString() + Environment.NewLine);
             SetText("G90" + Environment.NewLine);
@@ -619,9 +649,9 @@ namespace GRBLSettingsAndCofiguration
             {
                 TargetAxis = cmbAxisToCalibrate.SelectedItem.ToString().Replace("-axis", "");
             }
-            sp.Write("G91" + Environment.NewLine);
-            sp.Write("G0" + TargetAxis + cmbDistanceToMove.SelectedItem.ToString() + Environment.NewLine);
-            sp.Write("G90" + Environment.NewLine);
+            WriteData("G91" + Environment.NewLine);//sp.Write("G91" + Environment.NewLine);
+            WriteData("G0" + TargetAxis + cmbDistanceToMove.SelectedItem.ToString() + Environment.NewLine);// sp.Write("G0" + TargetAxis + cmbDistanceToMove.SelectedItem.ToString() + Environment.NewLine);
+            WriteData("G90" + Environment.NewLine); // sp.Write("G90" + Environment.NewLine);
             SetText("G91" + Environment.NewLine);
             SetText("G0" + TargetAxis + cmbDistanceToMove.SelectedItem.ToString() + Environment.NewLine);
             SetText("G90" + Environment.NewLine);
@@ -674,7 +704,7 @@ namespace GRBLSettingsAndCofiguration
                 MessageBox.Show("Connection not open.");
                 return;
             }
-            sp.Write((char)24 + Environment.NewLine);
+            WriteData((char)24 + Environment.NewLine); //sp.Write((char)24 + Environment.NewLine);
             SetText("" + Environment.NewLine);
             WaitingForResponse = true;
 
@@ -706,7 +736,7 @@ namespace GRBLSettingsAndCofiguration
             {
                 WaitingForResponse = true;
                 NextAction = "SavingNewStepsPerMM";
-                sp.Write(dCodes[cmbAxisToCalibrate.SelectedItem.ToString()[0]] + "=" + txtNewStepsPerMM.Text + Environment.NewLine);
+                WriteData(dCodes[cmbAxisToCalibrate.SelectedItem.ToString()[0]] + "=" + txtNewStepsPerMM.Text + Environment.NewLine); // sp.Write(dCodes[cmbAxisToCalibrate.SelectedItem.ToString()[0]] + "=" + txtNewStepsPerMM.Text + Environment.NewLine);
             }
             catch
             {
@@ -732,10 +762,10 @@ namespace GRBLSettingsAndCofiguration
                 WaitingForResponse = true;
                 try
                 {
-                    sp.Write(dgvSettings.Rows[rowNum].Cells[0].Value.ToString() + "=" +
+                    WriteData(dgvSettings.Rows[rowNum].Cells[0].Value.ToString() + "=" +
                          dgvSettings.Rows[rowNum].Cells[2].Value.ToString() +
                          Environment.NewLine
-                    );
+                    ); // sp.Write(dgvSettings.Rows[rowNum].Cells[0].Value.ToString() + "=" + dgvSettings.Rows[rowNum].Cells[2].Value.ToString() + Environment.NewLine);
                     SetText(dgvSettings.Rows[rowNum].Cells[0].Value.ToString() + "=" +
                          dgvSettings.Rows[rowNum].Cells[2].Value.ToString() +
                          Environment.NewLine);
@@ -776,7 +806,7 @@ namespace GRBLSettingsAndCofiguration
                 MessageBox.Show("Connection not open.");
                 return;
             }
-            sp.Write("$X" + Environment.NewLine);
+            WriteData("$X" + Environment.NewLine);  //sp.Write("$X" + Environment.NewLine);
             SetText("$X" + Environment.NewLine);
             WaitingForResponse = true;
         }
@@ -788,7 +818,7 @@ namespace GRBLSettingsAndCofiguration
                 MessageBox.Show("Connection not open.");
                 return;
             }
-            sp.Write("$H" + Environment.NewLine);
+            WriteData("$H" + Environment.NewLine); //sp.Write("$H" + Environment.NewLine);
             SetText("$H" + Environment.NewLine);
             WaitingForResponse = true;
         }
@@ -803,6 +833,181 @@ namespace GRBLSettingsAndCofiguration
             {
                 GRBLCurrentSelectedVersion = "";
             }
+        }
+
+        private void cbUse345_CheckedChanged(object sender, EventArgs e)
+        {
+            //nupYDistance.ReadOnly= cbUse345.Checked;
+            if (cbUse345.Checked)
+            {
+                // recalculate the values
+                double dExpectedDistanc = Math.Sqrt(Math.Pow((double)nupXDistance.Value, 2) + Math.Pow((double)nupYDistance.Value, 2));
+                txtDiagonalDistanceExpected.Text = dExpectedDistanc.ToString("###,###,###.###");
+            }
+        }
+
+        private void nupXDistance_ValueChanged(object sender, EventArgs e)
+        {
+            RecalculateSquaringValues();
+        }
+
+        private void RecalculateSquaringValues(bool Ychanged = false)
+        {
+            if (cbUse345.Checked && !Ychanged)
+            {
+                nupYDistance.Value = (nupXDistance.Value / 3) * 4;
+            }
+            else if(cbUse345.Checked && Ychanged)
+            {
+                nupXDistance.Value = (nupYDistance.Value / 4) * 3;
+            }
+            double dExpectedDistanc = Math.Sqrt(Math.Pow((double)nupXDistance.Value, 2) + Math.Pow((double)nupYDistance.Value, 2));
+            txtDiagonalDistanceExpected.Text = dExpectedDistanc.ToString("###,###,###.###");
+        }
+
+        private void nupYDistance_ValueChanged(object sender, EventArgs e)
+        {
+            RecalculateSquaringValues(true);
+        }
+
+        private void btnCalculateAdjustment_Click(object sender, EventArgs e)
+        {
+            //values
+
+            double dActualMoved = 0;
+            string sCorrectionDir = "up";
+            try
+            {
+                dActualMoved = double.Parse(txtDiagonalDistanceActual.Text);
+            }
+            catch{MessageBox.Show("Invalid distance moved");return;}
+
+            // direction
+            double dDiagonalExpected = double.Parse(txtDiagonalDistanceExpected.Text.Trim());
+
+            if (dActualMoved > dDiagonalExpected)
+            {
+                sCorrectionDir = "down";
+            }
+
+            double dXAxisLength = 0;
+            double.TryParse(txtXAxisLength.Text, out dXAxisLength);
+            if(dXAxisLength <= 0)
+            {
+                MessageBox.Show("Invalid X-axis length");
+                return;
+            }
+
+
+
+
+            // get the cosine of the two angles
+            double cosangle1 = (Math.Pow((double)nupYDistance.Value, 2) + Math.Pow(dActualMoved, 2) - Math.Pow((double)nupXDistance.Value, 2)) / (2 * (double)nupYDistance.Value * dActualMoved);
+            double cosangle2 = (Math.Pow((double)nupXDistance.Value, 2) + Math.Pow(dActualMoved, 2) - Math.Pow((double)nupYDistance.Value, 2)) / (2 * (double)nupXDistance.Value * dActualMoved);
+
+            //  get the total angle
+            double totalangle = (Math.Acos(cosangle1) + Math.Acos(cosangle2)) * (180 / Math.PI);
+            double angleatorigin = Math.Abs(90 - totalangle);
+            ///double distancefromXOrigin = (double)nupXDistance.Value + (double)nupStartDistFromOrigin.Value;
+            double sineAngleAtOrigin = Math.Sin((angleatorigin * (Math.PI / 180)));
+            // double yHeightDifference = sineAngleAtOrigin * distancefromXOrigin;
+
+            // calculate the distance to move at the opposite side
+            double distanceToMoveYAxis = dXAxisLength * sineAngleAtOrigin; // (yHeightDifference / distancefromXOrigin);
+
+
+            txtCorrectionResult.Text = "Move the right x axis side " + distanceToMoveYAxis.ToString("#####.###") + "mm " + sCorrectionDir +
+                " (OR the left side " + (sCorrectionDir == "down" ? "up" : "down") + ")";
+
+            return;
+
+
+
+
+
+            // get the first angle cos
+            double cosineangle = (Math.Pow((double)nupYDistance.Value, 2) + Math.Pow(dActualMoved, 2) - Math.Pow((double)nupXDistance.Value, 2)) / (2 * (double)nupYDistance.Value * dActualMoved);
+
+            // calculate the height
+            // cos of the angle is adjacent/hyp (height/distance moved)
+            // height = cos * hyp
+            double dHeight = cosineangle * dActualMoved;
+
+            // difference
+            double dYDifference = Math.Abs(dHeight - (double)nupYDistance.Value);
+
+            // calculate the x distance moved (same as for Y)
+            double cosineangleforX = (Math.Pow((double)nupXDistance.Value, 2) + Math.Pow(dActualMoved, 2) - Math.Pow((double)nupYDistance.Value, 2)) / (2 * (double)nupXDistance.Value * dActualMoved);
+            double xWidth = cosineangleforX * dHeight;
+
+            // calculate the ratio of x to x axis length and multiply with y difference
+
+
+            // correct for the x axis length
+            double dCorrectionDistance = (dXAxisLength / xWidth) * dYDifference;
+
+
+
+            txtCorrectionResult.Text = "Move the right x axis side " + dCorrectionDistance.ToString("#####.###") + "mm " + sCorrectionDir +
+                " (OR the left side " + (sCorrectionDir == "down" ? "up" : "down") + ")"; 
+
+
+
+        }
+
+        private void btnSquareStop_Click(object sender, EventArgs e)
+        {
+            if (!sp.IsOpen)
+            {
+                MessageBox.Show("Connection not open.");
+                return;
+            }
+            WriteData((char)24 + Environment.NewLine);  //sp.Write((char)24 + Environment.NewLine);
+            SetText("" + Environment.NewLine);
+            WaitingForResponse = true;
+        }
+
+        private void btnSquareHome_Click(object sender, EventArgs e)
+        {
+            if (!sp.IsOpen)
+            {
+                MessageBox.Show("Connection not open.");
+                return;
+            }
+            WriteData("$H" + Environment.NewLine);  //sp.Write("$H" + Environment.NewLine);
+            SetText("$H" + Environment.NewLine);
+            WaitingForResponse = true;
+        }
+
+        private void btnSquareUnlock_Click(object sender, EventArgs e)
+        {
+            if (!sp.IsOpen)
+            {
+                MessageBox.Show("Connection not open.");
+                return;
+            }
+            WriteData("$X" + Environment.NewLine); // sp.Write("$X" + Environment.NewLine);
+            SetText("$X" + Environment.NewLine);
+            WaitingForResponse = true;
+        }
+
+        private void btnSquareMoveToTarget_Click(object sender, EventArgs e)
+        {
+            if (!sp.IsOpen)
+            {
+                MessageBox.Show("Connection not open.");
+                return;
+            }
+
+
+            WriteData("G91" + Environment.NewLine);  // sp.Write("G91" + Environment.NewLine);
+            WriteData("G00 X" + nupXDistance.Value.ToString("######.###") + " Y" + nupYDistance.Value.ToString("######.###") + Environment.NewLine);  //sp.Write("G00 X" + nupXDistance.Value.ToString("######.###") + " Y" + nupYDistance.Value.ToString("######.###") + Environment.NewLine);
+            WriteData("G90" + Environment.NewLine);  //sp.Write("G90" + Environment.NewLine);
+            SetText("G91" + Environment.NewLine);
+            SetText("G0" + nupXDistance.Value.ToString("######.###") + " Y" + nupYDistance.Value.ToString("######.###") + Environment.NewLine);
+            SetText("G90" + Environment.NewLine);
+
+            WaitingForResponse = true;
         }
     }
 }
