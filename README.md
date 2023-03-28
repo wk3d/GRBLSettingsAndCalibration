@@ -4,4 +4,6 @@ This is a tool for manipulating GRBL settings made for my own use but I expect i
 
 This software is realeased under BSD 3.0 license.
 
-Changes to the software will be updated here. The only future change planned is a simple squaring functionality for squaring the x and y axes.
+~~Changes to the software will be updated here. The only future change planned is a simple squaring functionality for squaring the x and y axes.~~
+
+Squaring logic added. It depends on measuring diagonal movement and comparing with the expected length. Adjustment is done based on whether the movement was higher or lower than exptected.
